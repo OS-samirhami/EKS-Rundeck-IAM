@@ -4,10 +4,13 @@
         {
             "Effect": "Allow",
             "Action": [
-                "eks:ListClusters",
-                "eks:DescribeCluster"
+                "eks:DescribeCluster",
+                "eks:ListClusters"
             ],
-            "Resource": "*"
+            "Resource": [
+                "arn:aws:eks:*:621352866489:cluster/sre-team-dev-eks",
+                "arn:aws:eks:*:621352866489:cluster/*"
+            ]
         }
     ]
 }

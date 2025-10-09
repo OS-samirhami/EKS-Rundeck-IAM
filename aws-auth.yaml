@@ -5,7 +5,7 @@ metadata:
   namespace: kube-system
 data:
   mapRoles: |
-    - rolearn: arn:aws:iam::621352866489:role/k8sgpt-dev-eks-node-role
+    - rolearn: arn:aws:iam::621352866489:role/sre-team-dev-eks-node-role
       groups:                                                                                                                                                                                                                                                                                                                                 
         - system:bootstrappers                                                                                                                                                                                      
         - system:nodes                                                                                                                                                                                              

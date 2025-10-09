@@ -47,6 +47,8 @@ The solution implements a two-tier IAM role chain:
 
 This role is attached to the EC2 instances running Rundeck in account `512508756184`.
 
+**Target Cluster:** `sre-team-dev-eks`
+
 **Policy (`RundeckEKSCAPolicy.json`):**
 - Allows assuming the `EKSRORole` in the target account (621352866489)
 
@@ -74,7 +76,7 @@ This role provides read-only access to EKS clusters in account `621352866489`.
 Maps the IAM role to Kubernetes RBAC groups:
 - Maps `EKSRORole` to the `rundeck-readonly` group
 - Uses username `rundeck` for audit logging
-- Also includes node role mapping for EKS worker nodes
+- Also includes node role mapping for `sre-team-dev-eks` worker nodes (`sre-team-dev-eks-node-role`)
 
 ### 4. Kubernetes RBAC Configuration
 
@@ -178,10 +180,10 @@ aws configure set role_arn arn:aws:iam::621352866489:role/EKSRORole
 aws configure set credential_source Ec2InstanceMetadata
 
 # Test the configuration
-aws eks describe-cluster --name <your-cluster-name> --region <region>
+aws eks describe-cluster --name sre-team-dev-eks --region <region>
 
 # Update kubeconfig for Rundeck
-aws eks update-kubeconfig --name <your-cluster-name> --region <region> --role-arn arn:aws:iam::621352866489:role/EKSRORole
+aws eks update-kubeconfig --name sre-team-dev-eks --region <region> --role-arn arn:aws:iam::621352866489:role/EKSRORole
 ```
 
 ## Verification
