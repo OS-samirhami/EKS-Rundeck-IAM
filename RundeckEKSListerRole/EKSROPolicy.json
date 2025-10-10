@@ -1,0 +1,23 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "eks:ListClusters",
+                "eks:DescribeCluster",
+                "eks:ListNodegroups",
+                "eks:DescribeNodegroup",
+                "eks:DescribeClusterVersions",
+                "eks:CreateAccessEntry",
+                "eks:AccessKubernetesApi"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "EE55077E-A9DD-48C5-9A7F-3190DF36550C"
+                }
+            }
+        }
+    ]
+}

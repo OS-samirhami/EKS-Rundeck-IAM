@@ -1,0 +1,112 @@
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  id: c6bd95ab-fca1-4f9b-b226-f2632cbfddc6
+  loglevel: INFO
+  name: 'Shell script job '
+  nodeFilterEditable: false
+  options:
+  - name: AWS_ACCOUNT
+    required: true
+  - name: CLUSTER_NAME
+    required: true
+  - name: REGION
+    required: true
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - autoSecureInput: 'false'
+      description: Assume Role & Export Credentials
+      passSecureInput: 'false'
+      script: |
+        #!/bin/bash
+        ACCOUNT_ID="@option.AWS_ACCOUNT@"
+        ROLE_NAME="RundeckEKSListerRole"
+        SESSION_NAME="rundeck-eks-session-$(date +%s)"
+
+        ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+
+        CREDS=$(aws sts assume-role \
+          --role-arn "$ROLE_ARN" \
+          --role-session-name "$SESSION_NAME" \
+          --output json)
+
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Failed to assume role"
+          exit 1
+        fi
+
+        # Ensure we have a writable path
+        ENV_FILE="${RD_JOB_TEMP_DIR:-/var/lib/rundeck}/aws_creds.sh"
+
+        # Write AWS credentials into env file
+        cat > "$ENV_FILE" <<EOF
+        export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
+        export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
+        export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
+        EOF
+
+        chmod 600 "$ENV_FILE"
+        echo "Credentials stored in $ENV_FILE"
+    - autoSecureInput: 'false'
+      description: Configure EKS access entries
+      passSecureInput: 'false'
+      script: |
+        #!/bin/bash
+
+        # Load creds from Step 1
+
+        source "${RD_JOB_TEMP_DIR:-/var/lib/rundeck}/aws_creds.sh"
+
+        aws eks update-cluster-config --name sre-team-dev-eks --access-config authenticationMode=API_AND_CONFIG_MAP
+
+        aws eks describe-cluster --name sre-team-dev-eks --query "cluster.accessConfig"
+
+        aws eks create-access-entry  --cluster-name sre-team-dev-eks --principal-arn arn:aws:iam::621352866489:role/RundeckEKSListerRole --type STANDARD --username rundeck --kubernetes-groups rundeck-readonly
+    - autoSecureInput: 'false'
+      description: Update kubeconfig
+      passSecureInput: 'false'
+      script: |
+        #!/bin/bash
+
+        # Load creds from Step 1
+
+        source "${RD_JOB_TEMP_DIR:-/var/lib/rundeck}/aws_creds.sh"
+
+        CLUSTER_NAME="@option.CLUSTER_NAME@"
+        REGION="@option.REGION@"
+
+        aws eks update-kubeconfig \
+          --name "$CLUSTER_NAME" \
+          --region "$REGION" \
+          --kubeconfig  /var/lib/rundeck/.kube/config
+    - autoSecureInput: 'false'
+      description: Check readOnly permissions on the cluster
+      passSecureInput: 'false'
+      script: |-
+        #!/bin/bash
+
+
+        # Load creds
+        source "${RD_JOB_TEMP_DIR:-/var/lib/rundeck}/aws_creds.sh"
+
+        # Test the permissions
+        echo "can i list pods: $(kubectl auth can-i get pods)"
+        kubectl auth can-i create pods || true
+        kubectl auth can-i get secrets || true
+    - autoSecureInput: 'false'
+      description: List all pods in the namespace
+      passSecureInput: 'false'
+      script: |-
+        #!/bin/bash
+
+
+        # Load creds
+        source "${RD_JOB_TEMP_DIR:-/var/lib/rundeck}/aws_creds.sh"
+
+        kubectl get pods -A
+    keepgoing: false
+    strategy: node-first
+  uuid: c6bd95ab-fca1-4f9b-b226-f2632cbfddc6

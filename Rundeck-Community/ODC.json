@@ -1,0 +1,15 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "arn:aws:iam::*:role/RundeckEKSListerRole"
+        }
+    ],
+    "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "EE55077E-A9DD-48C5-9A7F-3190DF36550C"
+                }
+            }
+}
