@@ -167,7 +167,7 @@ Rundeck Account (316978178737)
 ```
 .
 ├── README.md                          # This file
-├── role_config.yaml                   # Kubernetes ClusterRole and ClusterRoleBinding
+├── nosecret_ClusterRole.yaml          # Kubernetes ClusterRole and ClusterRoleBinding
 ├── rundeck-job.yaml                   # Example Rundeck job for EKS access
 ├── Rundeck-Community/                 # Source account IAM role (316978178737)
 │   ├── ODC.json                       # Policy to assume RundeckEKSListerRole
@@ -255,7 +255,7 @@ Without access entry, the IAM role can access EKS APIs but cannot authenticate t
 
 #### 4. Kubernetes RBAC Configuration
 
-**File:** `role_config.yaml`  
+**File:** `nosecret_ClusterRole.yaml`  
 **Account:** Target accounts (deployed to each EKS cluster)  
 **Deployed to:** Kubernetes clusters
 
@@ -390,7 +390,7 @@ Apply the Kubernetes ClusterRole and ClusterRoleBinding:
 
 ```bash
 # Apply ClusterRole and ClusterRoleBinding
-kubectl apply -f role_config.yaml
+kubectl apply -f nosecret_ClusterRole.yaml
 ```
 
 ### Step 4: Configure EKS Access Entries
@@ -618,7 +618,7 @@ Expected output should show user as `rundeck` and groups including `rundeck-read
 
 ### Adding More Permissions
 
-To grant additional read-only access, edit `role_config.yaml` and add more `apiGroups` and `resources`. Always use only `get`, `list`, and `watch` verbs for read-only access.
+To grant additional read-only access, edit `nosecret_ClusterRole.yaml` and add more `apiGroups` and `resources`. Always use only `get`, `list`, and `watch` verbs for read-only access.
 
 ### Multiple Rundeck Users
 
