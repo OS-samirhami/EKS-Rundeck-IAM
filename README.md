@@ -7,11 +7,11 @@ A comprehensive solution for configuring IAM roles and Kubernetes RBAC permissio
 This project provides the necessary IAM policies, trust relationships, and Kubernetes RBAC configurations to securely integrate Rundeck with Amazon Elastic Kubernetes Service (EKS). It implements a cross-account role assumption pattern that allows Rundeck running on EC2 instances to access EKS cluster resources with read-only permissions. 
 
 The solution uses:
-- **EKS Access Entries** (modern approach) instead of the legacy aws-auth ConfigMap for simpler and more secure IAM-to-Kubernetes mapping
+- **EKS Access Entries API** (modern approach) with authentication mode `API_AND_CONFIG_MAP` instead of manually editing the legacy aws-auth ConfigMap
 - **External ID** for enhanced security against the confused deputy problem
 - **Cross-account role assumption** to support multiple target accounts
 
-This approach provides better auditability, easier management through AWS APIs, and eliminates the need to manually edit Kubernetes ConfigMaps.
+This approach provides better auditability, easier management through AWS APIs, and eliminates the need to manually edit Kubernetes ConfigMaps. By using EKS Access Entries with `API_AND_CONFIG_MAP` authentication mode, you get the benefits of API-based management while maintaining backward compatibility with existing ConfigMap-based access.
 
 ## Architecture
 
@@ -239,19 +239,22 @@ This role is what gives Rundeck actual permissions in the target account. Withou
 #### 3. EKS Access Entries
 
 **Account:** Target accounts (EKS cluster accounts)  
-**Managed by:** AWS EKS API (not a file in this repo)
+**Managed by:** AWS EKS API (not a file in this repo)  
+**Authentication Mode:** `API_AND_CONFIG_MAP`
 
 **Purpose:**  
 Bridges the gap between AWS IAM (RundeckEKSListerRole) and Kubernetes RBAC (rundeck-readonly group).
 
-EKS Access Entries provide a more secure and manageable way to grant IAM principals access to EKS clusters:
-- Direct API-based management (no manual ConfigMap editing)
+**This solution uses EKS Access Entries API with `API_AND_CONFIG_MAP` authentication mode instead of manually editing the aws-auth ConfigMap.** This approach provides:
+- Direct API-based management (no manual ConfigMap editing required)
+- Better security and auditability
+- Eliminates risk of ConfigMap syntax errors
 - Maps `RundeckEKSListerRole` to the `rundeck-readonly` Kubernetes group
 - Uses username `rundeck` for audit logging
-- Requires cluster authentication mode to be set to `API_AND_CONFIG_MAP` or `API`
+- Maintains backward compatibility with existing ConfigMap-based access
 
 **Why This Matters:**  
-Without access entry, the IAM role can access EKS APIs but cannot authenticate to the Kubernetes cluster itself.
+Without access entry, the IAM role can access EKS APIs but cannot authenticate to the Kubernetes cluster itself. Using the API approach instead of ConfigMap editing provides a more robust and maintainable solution.
 
 #### 4. Kubernetes RBAC Configuration
 
@@ -394,6 +397,8 @@ kubectl apply -f nosecret_ClusterRole.yaml
 ```
 
 ### Step 4: Configure EKS Access Entries
+
+**Important:** This solution uses the **EKS Access Entries API** with authentication mode set to `API_AND_CONFIG_MAP` instead of manually editing the aws-auth ConfigMap. This provides a more secure, API-driven approach to managing cluster access while maintaining backward compatibility.
 
 Instead of manually editing the aws-auth ConfigMap, use EKS Access Entries API:
 
@@ -551,7 +556,7 @@ Expected output should show user as `rundeck` and groups including `rundeck-read
 
 ## Security Considerations
 
-1. **EKS Access Entries:** Uses the modern EKS Access Entries API instead of ConfigMap for better security and auditability
+1. **EKS Access Entries with API_AND_CONFIG_MAP Mode:** Uses the modern EKS Access Entries API with authentication mode set to `API_AND_CONFIG_MAP` instead of manually editing the aws-auth ConfigMap. This provides better security, auditability, and eliminates the risk of ConfigMap syntax errors.
 2. **Least Privilege:** The RundeckEKSListerRole only has read-only access to EKS resources
 3. **Cross-Account:** Uses IAM role assumption for cross-account access
 4. **External ID Protection:** Uses external ID `EE55077E-A9DD-48C5-9A7F-3190DF36550C` to prevent the confused deputy problem
@@ -559,7 +564,7 @@ Expected output should show user as `rundeck` and groups including `rundeck-read
 6. **Audit Trail:** All actions are logged with the username `rundeck`
 7. **No Write Access:** The Kubernetes RBAC configuration explicitly only grants `get`, `list`, and `watch` verbs
 8. **Account Isolation:** Source account (316978178737) is restricted via trust policies
-9. **API-Based Management:** Access entries are managed via AWS APIs, reducing the risk of manual ConfigMap errors
+9. **API-Based Management:** Access entries are managed via AWS APIs, reducing the risk of manual ConfigMap errors and providing better auditability
 
 ## Troubleshooting
 
