@@ -22,7 +22,7 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 | Account Type | Account ID | Primary Role | Purpose | What It Hosts |
 |--------------|------------|--------------|---------|---------------|
 | **Source** | 316978178737 | Rundeck-Community | Automation Hub | Rundeck EC2 instances |
-| **Target(s)** | Multiple accounts | RundeckEKSListerRole | EKS Access | EKS clusters (dev/staging/prod) |
+| **Target(s)** | Multiple accounts | Rundeck_Access_ODC | EKS Access | EKS clusters (dev/staging/prod) |
 
 #### 🏢 Source Account (316978178737) - Rundeck Management Account
 **Purpose:** Hosts the centralized Rundeck automation server
@@ -34,7 +34,7 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 
 **Key Role:** `Rundeck-Community`
 - **Attached to:** EC2 instances running Rundeck via instance profile
-- **Permissions:** Can assume `RundeckEKSListerRole` in ANY AWS account (using wildcard `*`)
+- **Permissions:** Can assume `Rundeck_Access_ODC` in ANY AWS account (using wildcard `*`)
 - **Trust Policy:** Only allows EC2 service from account 316978178737
 - **Security:** Requires external ID when assuming roles in target accounts
 
@@ -46,7 +46,7 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 - Grants controlled access to Rundeck from the source account
 - Maintains security boundaries while allowing read-only automation
 
-**Key Role:** `RundeckEKSListerRole`
+**Key Role:** `Rundeck_Access_ODC`
 - **Purpose:** Provides EKS cluster access to Rundeck
 - **Permissions:** 
   - List and describe EKS clusters and node groups
@@ -57,12 +57,12 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 
 ### Role Comparison Matrix
 
-| Aspect | Rundeck-Community (Source) | RundeckEKSListerRole (Target) |
+| Aspect | Rundeck-Community (Source) | Rundeck_Access_ODC (Target) |
 |--------|---------------------------|-------------------------------|
 | **Account** | 316978178737 (Rundeck account) | Multiple target accounts |
 | **Attached To** | EC2 instances (via instance profile) | Not attached, only assumed |
 | **Can Be Assumed By** | EC2 service in account 316978178737 | Rundeck-Community role (any account) |
-| **Can Assume** | RundeckEKSListerRole in any account | Cannot assume other roles |
+| **Can Assume** | Rundeck_Access_ODC in any account | Cannot assume other roles |
 | **AWS Permissions** | sts:AssumeRole only | EKS list/describe/access operations |
 | **K8s Access** | None directly | Via EKS Access Entry → rundeck-readonly group |
 | **External ID Required** | When assuming target roles | When being assumed |
@@ -85,7 +85,7 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 ┌─────────────────────────────────────┐
 │  Target Account (e.g., 621352866489)│
 │  ┌─────────────────────────────┐    │
-│  │ RundeckEKSListerRole        │    │
+│  │ Rundeck_Access_ODC        │    │
 │  │ Grants EKS API access       │    │
 │  └──────────┬──────────────────┘    │
 │             │                        │
@@ -145,7 +145,7 @@ Rundeck Account (316978178737)
 2. **Rundeck assumes target role**
    - Uses EC2 instance profile (Rundeck-Community)
    - Calls `sts:AssumeRole` with external ID
-   - Receives temporary credentials for RundeckEKSListerRole
+   - Receives temporary credentials for Rundeck_Access_ODC
 
 3. **Access EKS cluster**
    - Uses temporary credentials
@@ -170,9 +170,9 @@ Rundeck Account (316978178737)
 ├── nosecret_ClusterRole.yaml          # Kubernetes ClusterRole and ClusterRoleBinding
 ├── rundeck-job.yaml                   # Example Rundeck job for EKS access
 ├── Rundeck-Community/                 # Source account IAM role (316978178737)
-│   ├── ODC.json                       # Policy to assume RundeckEKSListerRole
+│   ├── ODC.json                       # Policy to assume Rundeck_Access_ODC
 │   └── trust_relationship.json        # Trust policy for EC2 service
-└── RundeckEKSListerRole/              # Target account IAM role
+└── Rundeck_Access_ODC/              # Target account IAM role
     ├── EKSROPolicy.json               # Policy for EKS API access
     └── trust_relationsship.json       # Trust policy for Rundeck-Community role
 ```
@@ -192,7 +192,7 @@ This is the "identity" role that Rundeck uses to authenticate cross-account requ
 
 **Policy (`ODC.json`):**
 - **Action:** `sts:AssumeRole`
-- **Resource:** `arn:aws:iam::*:role/RundeckEKSListerRole` (any account)
+- **Resource:** `arn:aws:iam::*:role/Rundeck_Access_ODC` (any account)
 - **Condition:** Must provide external ID `EE55077E-A9DD-48C5-9A7F-3190DF36550C`
 - **Effect:** Allows Rundeck to assume the lister role in any AWS account
 
@@ -209,9 +209,9 @@ Without this role, Rundeck has no permissions to do anything. This role is the s
 
 ### 🎯 Target Account Components (EKS Cluster Accounts)
 
-#### 2. RundeckEKSListerRole IAM Role
+#### 2. Rundeck_Access_ODC IAM Role
 
-**Location:** `RundeckEKSListerRole/`  
+**Location:** `Rundeck_Access_ODC/`  
 **Account:** Target accounts (where EKS clusters live)  
 **Deployment:** Created in each account that hosts EKS clusters
 
@@ -243,13 +243,13 @@ This role is what gives Rundeck actual permissions in the target account. Withou
 **Authentication Mode:** `API_AND_CONFIG_MAP`
 
 **Purpose:**  
-Bridges the gap between AWS IAM (RundeckEKSListerRole) and Kubernetes RBAC (rundeck-readonly group).
+Bridges the gap between AWS IAM (Rundeck_Access_ODC) and Kubernetes RBAC (rundeck-readonly group).
 
 **This solution uses EKS Access Entries API with `API_AND_CONFIG_MAP` authentication mode instead of manually editing the aws-auth ConfigMap.** This approach provides:
 - Direct API-based management (no manual ConfigMap editing required)
 - Better security and auditability
 - Eliminates risk of ConfigMap syntax errors
-- Maps `RundeckEKSListerRole` to the `rundeck-readonly` Kubernetes group
+- Maps `Rundeck_Access_ODC` to the `rundeck-readonly` Kubernetes group
 - Uses username `rundeck` for audit logging
 - Maintains backward compatibility with existing ConfigMap-based access
 
@@ -295,7 +295,7 @@ This is the final security layer. Even if someone compromises the IAM roles, the
 A ready-to-use Rundeck job that automates the entire setup and access workflow.
 
 Provides an example Rundeck job that demonstrates:
-- Assuming the RundeckEKSListerRole with proper credentials and external ID
+- Assuming the Rundeck_Access_ODC with proper credentials and external ID
 - Configuring EKS cluster authentication mode (API_AND_CONFIG_MAP)
 - Creating EKS access entries for the role
 - Updating kubeconfig for cluster access
@@ -314,11 +314,11 @@ Here's the complete flow when Rundeck needs to access an EKS cluster:
 1. **🔐 Authentication Phase (Source Account)**
    - Rundeck EC2 instance has `Rundeck-Community` role attached
    - Rundeck calls `sts:AssumeRole` with external ID
-   - Receives temporary credentials for `RundeckEKSListerRole` in target account
+   - Receives temporary credentials for `Rundeck_Access_ODC` in target account
 
 2. **🎫 Authorization Phase (Target Account)**
    - Using temporary credentials, Rundeck calls EKS APIs
-   - `RundeckEKSListerRole` permissions allow EKS operations
+   - `Rundeck_Access_ODC` permissions allow EKS operations
    - EKS Access Entry maps IAM role → Kubernetes user "rundeck" in group "rundeck-readonly"
 
 3. **☸️ Kubernetes Phase (EKS Cluster)**
@@ -365,23 +365,23 @@ aws iam add-role-to-instance-profile \
   --role-name Rundeck-Community
 ```
 
-### Step 2: Create RundeckEKSListerRole (Target Account)
+### Step 2: Create Rundeck_Access_ODC (Target Account)
 
 In your target AWS account(s):
 
 ```bash
 # Create the IAM role
 aws iam create-role \
-  --role-name RundeckEKSListerRole \
-  --assume-role-policy-document file://RundeckEKSListerRole/trust_relationsship.json
+  --role-name Rundeck_Access_ODC \
+  --assume-role-policy-document file://Rundeck_Access_ODC/trust_relationsship.json
 
 # Attach the policy
 aws iam create-policy \
   --policy-name EKSROPolicy \
-  --policy-document file://RundeckEKSListerRole/EKSROPolicy.json
+  --policy-document file://Rundeck_Access_ODC/EKSROPolicy.json
 
 aws iam attach-role-policy \
-  --role-name RundeckEKSListerRole \
+  --role-name Rundeck_Access_ODC \
   --policy-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:policy/EKSROPolicy
 ```
 
@@ -424,12 +424,12 @@ aws eks describe-cluster \
 
 #### Step 4.2: Create EKS Access Entry
 
-Create an access entry for the RundeckEKSListerRole:
+Create an access entry for the Rundeck_Access_ODC:
 
 ```bash
 aws eks create-access-entry \
   --cluster-name <CLUSTER_NAME> \
-  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole \
+  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC \
   --type STANDARD \
   --username rundeck \
   --kubernetes-groups rundeck-readonly \
@@ -450,7 +450,7 @@ aws eks list-access-entries \
 # Describe the specific access entry
 aws eks describe-access-entry \
   --cluster-name <CLUSTER_NAME> \
-  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole \
+  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC \
   --region <REGION>
 ```
 
@@ -462,7 +462,7 @@ In your Rundeck configuration, set up the AWS CLI to use role chaining with exte
 # On the Rundeck EC2 instance, configure AWS CLI profile
 cat >> ~/.aws/config << EOF
 [profile rundeck-eks]
-role_arn = arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole
+role_arn = arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC
 credential_source = Ec2InstanceMetadata
 external_id = EE55077E-A9DD-48C5-9A7F-3190DF36550C
 EOF
@@ -474,7 +474,7 @@ aws eks describe-cluster --name <cluster-name> --region <region> --profile runde
 aws eks update-kubeconfig \
   --name <cluster-name> \
   --region <region> \
-  --role-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole \
+  --role-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC \
   --profile rundeck-eks
 ```
 
@@ -492,7 +492,7 @@ You can import the example Rundeck job to automate the complete setup:
    - `REGION`: AWS region
 
 The job will:
-- Assume the RundeckEKSListerRole
+- Assume the Rundeck_Access_ODC
 - Update cluster authentication mode if needed
 - Create the access entry
 - Configure kubeconfig
@@ -506,7 +506,7 @@ The job will:
 ```bash
 # From Rundeck EC2 instance, test assuming the role
 aws sts assume-role \
-  --role-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole \
+  --role-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC \
   --role-session-name rundeck-test \
   --external-id EE55077E-A9DD-48C5-9A7F-3190DF36550C
 
@@ -525,7 +525,7 @@ aws eks list-access-entries \
 # Describe the specific access entry
 aws eks describe-access-entry \
   --cluster-name <CLUSTER_NAME> \
-  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole \
+  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC \
   --region <REGION>
 
 # Verify authentication mode
@@ -557,7 +557,7 @@ Expected output should show user as `rundeck` and groups including `rundeck-read
 ## Security Considerations
 
 1. **EKS Access Entries with API_AND_CONFIG_MAP Mode:** Uses the modern EKS Access Entries API with authentication mode set to `API_AND_CONFIG_MAP` instead of manually editing the aws-auth ConfigMap. This provides better security, auditability, and eliminates the risk of ConfigMap syntax errors.
-2. **Least Privilege:** The RundeckEKSListerRole only has read-only access to EKS resources
+2. **Least Privilege:** The Rundeck_Access_ODC only has read-only access to EKS resources
 3. **Cross-Account:** Uses IAM role assumption for cross-account access
 4. **External ID Protection:** Uses external ID `EE55077E-A9DD-48C5-9A7F-3190DF36550C` to prevent the confused deputy problem
 5. **Kubernetes RBAC:** Additional layer of security at the Kubernetes level
@@ -573,9 +573,9 @@ Expected output should show user as `rundeck` and groups including `rundeck-read
 **Error:** `An error occurred (AccessDenied) when calling the AssumeRole operation`
 
 **Solutions:**
-- Verify the trust relationship in RundeckEKSListerRole allows Rundeck-Community role
+- Verify the trust relationship in Rundeck_Access_ODC allows Rundeck-Community role
 - Check that the EC2 instance has the correct instance profile (Rundeck-Community-Profile) attached
-- Ensure the policy in Rundeck-Community role has permission to assume RundeckEKSListerRole
+- Ensure the policy in Rundeck-Community role has permission to assume Rundeck_Access_ODC
 - Verify you're using the correct external ID: `EE55077E-A9DD-48C5-9A7F-3190DF36550C`
 - Check that the external ID is properly configured in both the trust policy and when assuming the role
 
@@ -637,7 +637,7 @@ Example for a second Rundeck instance:
 ```bash
 aws eks create-access-entry \
   --cluster-name <CLUSTER_NAME> \
-  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/RundeckEKSListerRole-Dev \
+  --principal-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:role/Rundeck_Access_ODC-Dev \
   --type STANDARD \
   --username rundeck-dev \
   --kubernetes-groups rundeck-dev-readonly \

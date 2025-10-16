@@ -23,7 +23,7 @@
       script: |
         #!/bin/bash
         ACCOUNT_ID="@option.AWS_ACCOUNT@"
-        ROLE_NAME="RundeckEKSListerRole"
+        ROLE_NAME="Rundeck_Access_ODC"
         SESSION_NAME="rundeck-eks-session-$(date +%s)"
 
         ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
@@ -64,7 +64,7 @@
 
         aws eks describe-cluster --name sre-team-dev-eks --query "cluster.accessConfig"
 
-        aws eks create-access-entry  --cluster-name sre-team-dev-eks --principal-arn arn:aws:iam::621352866489:role/RundeckEKSListerRole --type STANDARD --username rundeck --kubernetes-groups rundeck-readonly
+        aws eks create-access-entry  --cluster-name sre-team-dev-eks --principal-arn arn:aws:iam::621352866489:role/Rundeck_Access_ODC --type STANDARD --username rundeck --kubernetes-groups rundeck-readonly
     - autoSecureInput: 'false'
       description: Update kubeconfig
       passSecureInput: 'false'

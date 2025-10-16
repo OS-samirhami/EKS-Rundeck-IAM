@@ -4,7 +4,7 @@
         {
             "Effect": "Allow",
             "Action": "sts:AssumeRole",
-            "Resource": "arn:aws:iam::*:role/RundeckEKSListerRole"
+            "Resource": "arn:aws:iam::*:role/Rundeck_Access_ODC"
         }
     ],
     "Condition": {
