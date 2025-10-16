@@ -66,7 +66,7 @@ This solution uses a **centralized Rundeck deployment** with **cross-account acc
 | **AWS Permissions** | sts:AssumeRole only | EKS list/describe/access operations |
 | **K8s Access** | None directly | Via EKS Access Entry → rundeck-readonly group |
 | **External ID Required** | When assuming target roles | When being assumed |
-| **Policy Files** | ODC.json, trust_relationship.json | EKSROPolicy.json, trust_relationsship.json |
+| **Policy Files** | ODC.json, trust_relationship.json | AWS_Services_Access_Readonly.json, trust_relationsship.json |
 
 ### Role Chain Flow
 
@@ -173,7 +173,7 @@ Rundeck Account (316978178737)
 │   ├── ODC.json                       # Policy to assume Rundeck_Access_ODC
 │   └── trust_relationship.json        # Trust policy for EC2 service
 └── Rundeck_Access_ODC/              # Target account IAM role
-    ├── EKSROPolicy.json               # Policy for EKS API access
+    ├── AWS_Services_Access_Readonly.json               # Policy for EKS API access
     └── trust_relationsship.json       # Trust policy for Rundeck-Community role
 ```
 
@@ -218,7 +218,7 @@ Without this role, Rundeck has no permissions to do anything. This role is the s
 **Purpose:**  
 This role grants the actual EKS and Kubernetes access. When assumed by Rundeck, it provides the permissions needed to interact with EKS clusters.
 
-**Policy (`EKSROPolicy.json`):**
+**Policy (`AWS_Services_Access_Readonly.json`):**
 - `eks:ListClusters` - Discover all EKS clusters in the account
 - `eks:DescribeCluster` - Get cluster details (endpoint, version, etc.)
 - `eks:ListNodegroups` - List node groups within clusters
@@ -377,12 +377,12 @@ aws iam create-role \
 
 # Attach the policy
 aws iam create-policy \
-  --policy-name EKSROPolicy \
-  --policy-document file://Rundeck_Access_ODC/EKSROPolicy.json
+  --policy-name AWS_Services_Access_Readonly \
+  --policy-document file://Rundeck_Access_ODC/AWS_Services_Access_Readonly.json
 
 aws iam attach-role-policy \
   --role-name Rundeck_Access_ODC \
-  --policy-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:policy/EKSROPolicy
+  --policy-arn arn:aws:iam::<TARGET_ACCOUNT_ID>:policy/AWS_Services_Access_Readonly
 ```
 
 **Important:** Remember to replace `<TARGET_ACCOUNT_ID>` with your actual target account ID.
